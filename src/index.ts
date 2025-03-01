@@ -1,6 +1,7 @@
 import { serve } from "bun";
 import { parseHTML } from "linkedom";
 import ical, { ICalCalendarMethod } from "ical-generator";
+import { DateTime, type WeekdayNumbers } from "luxon";
 
 const days = [
   "poniedziałek",
@@ -13,34 +14,9 @@ const days = [
 ];
 
 function getDateForWeekday(weekdayIndex: number) {
-  const date = new Date();
-  const currentDay = date.getDay(); // sunday first
-
-  const adjustedCurrentDay = currentDay === 0 ? 6 : currentDay - 1;
-
-  date.setDate(date.getDate() - adjustedCurrentDay + weekdayIndex);
-
-  return date;
-}
-
-// source: https://weeknumber.com/how-to/javascript
-function getWeek(originalDate: Date) {
-  const date = new Date(originalDate);
-  date.setHours(0, 0, 0, 0);
-  // Thursday in current week decides the year.
-  date.setDate(date.getDate() + 3 - ((date.getDay() + 6) % 7));
-  // January 4 is always in week 1.
-  var week1 = new Date(date.getFullYear(), 0, 4);
-  // Adjust to Thursday in week 1 and count number of weeks from date to week1.
-  return (
-    1 +
-    Math.round(
-      ((date.getTime() - week1.getTime()) / 86400000 -
-        3 +
-        ((week1.getDay() + 6) % 7)) /
-        7
-    )
-  );
+  return DateTime.now()
+    .setZone("Europe/Warsaw")
+    .set({ weekday: (weekdayIndex + 1) as WeekdayNumbers });
 }
 
 async function fetchDegraHTML(searchParams: URLSearchParams) {
@@ -60,11 +36,15 @@ function getStartEndDate(dayIndex: number, text: string) {
 
   const [_, startHours, startMinutes, endHours, endMinutes] = timeMatch ?? [];
 
-  const startTime = getDateForWeekday(dayIndex);
-  startTime.setHours(parseInt(startHours), parseInt(startMinutes));
+  const startTime = getDateForWeekday(dayIndex).set({
+    hour: parseInt(startHours),
+    minute: parseInt(startMinutes),
+  });
 
-  const endTime = getDateForWeekday(dayIndex);
-  endTime.setHours(parseInt(endHours), parseInt(endMinutes));
+  const endTime = getDateForWeekday(dayIndex).set({
+    hour: parseInt(endHours),
+    minute: parseInt(endMinutes),
+  });
 
   return [startTime, endTime];
 }
@@ -80,7 +60,7 @@ const server = serve({
         const { document } = parseHTML(degraHTML);
 
         const planList = Array.from(document.querySelectorAll("section>ul")).at(
-          -1
+          -1,
         );
         if (!planList) return new Response(null, { status: 500 });
 
@@ -134,20 +114,18 @@ const server = serve({
 
             for (let weekOffset = 0; weekOffset <= 4; weekOffset++) {
               if (weekOffset > 0) {
-                startTime = new Date(startTime);
-                startTime.setDate(startTime.getDate() + 7);
-                endTime = new Date(endTime);
-                endTime.setDate(endTime.getDate() + 7);
+                startTime = startTime.plus({ weeks: 1 });
+                endTime = endTime.plus({ weeks: 1 });
               }
 
-              const weekEven = getWeek(startTime) % 2 == 0;
+              const weekEven = startTime.weekNumber % 2 == 0;
 
               if (isOnlyNonEvenWeek && weekEven) continue;
               if (isOnlyEvenWeek && !weekEven) continue;
 
               calendar.createEvent({
-                start: startTime,
-                end: endTime,
+                start: startTime.toJSDate(),
+                end: endTime.toJSDate(),
                 summary: className,
                 location: room,
                 description: text,
