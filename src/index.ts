@@ -31,7 +31,7 @@ async function fetchDegraHTML(searchParams: URLSearchParams) {
 }
 
 function getStartEndDate(dayIndex: number, text: string) {
-  const timeRegex = /godz\. (\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})/;
+  const timeRegex = /(\d{1,2}):(\d{2})\s?-\s?(\d{1,2}):(\d{2})/;
   const timeMatch = text.match(timeRegex);
 
   const [_, startHours, startMinutes, endHours, endMinutes] = timeMatch ?? [];
@@ -81,35 +81,43 @@ const server = serve({
 
             let [startTime, endTime] = getStartEndDate(dayIndex, text);
 
-            const teacherRoomRegex = /prowadzący (.*) w sali ([a-zA-Z0-9]*),/;
+            const teacherRoomRegex = /prowadzący (.*) w sali ([a-zA-Z0-9/ ]*),/;
             const teacherRoomMatch = text.match(teacherRoomRegex);
-            const [__, teacherName, room] = teacherRoomMatch ?? [];
+            let [__, teacherName, room] = teacherRoomMatch ?? [];
+            teacherName = teacherName.trim();
 
             const classNameRegex = /z (.*), prowadzący/;
             const classNameMatch = text.match(classNameRegex);
             const [___, className] = classNameMatch ?? [];
             const isOnlyNonEvenWeek = text.includes("(tyg. I)");
             const isOnlyEvenWeek = text.includes("(tyg. II)");
-
             let organizer = null;
 
-            if (teacherName) {
+            // only analyze names that have two+ words
+            if (teacherName && teacherName.includes(" ")) {
               // we'll try to guess the email based on the teacher's name
-              const teacherNameRegex = /(\p{Lu})\p{L}*\s+(\p{L}+)/u;
-              const teacherNameMatch = teacherName.match(teacherNameRegex);
-              const [____, nameLetter, lastNameFirstSection] =
-                teacherNameMatch ?? [];
+              const hourNameRegex = /(\d{1,2}):(\d{2})\s-\s(\d{1,2}):(\d{2})/;
 
-              const email = `${nameLetter.toLowerCase()}.${lastNameFirstSection
-                .toLowerCase()
-                // get rid of diacritics
-                .normalize("NFD")
-                .replace(/[\u0300-\u036f]/g, "")}@pb.edu.pl`;
+              if (hourNameRegex.test(teacherName)) {
+                // This is a special case where it reads the time of it as the teacher's name
+                [startTime, endTime] = getStartEndDate(dayIndex, teacherName);
+              } else {
+                const teacherNameRegex = /(\p{Lu})[\p{L}\.]*\s+(\p{L}+)/u;
+                const teacherNameMatch = teacherName.match(teacherNameRegex);
+                const [____, nameLetter, lastNameFirstSection] =
+                  teacherNameMatch ?? [];
 
-              organizer = {
-                name: teacherName,
-                email,
-              };
+                const email = `${nameLetter.toLowerCase()}.${lastNameFirstSection
+                  .toLowerCase()
+                  // get rid of diacritics
+                  .normalize("NFD")
+                  .replace(/[\u0300-\u036f]/g, "")}@pb.edu.pl`;
+
+                organizer = {
+                  name: teacherName,
+                  email,
+                };
+              }
             }
 
             for (let weekOffset = 0; weekOffset <= 4; weekOffset++) {
