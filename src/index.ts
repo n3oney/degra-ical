@@ -126,7 +126,7 @@ const server = serve({
                 endTime = endTime.plus({ weeks: 1 });
               }
 
-              const weekEven = startTime.weekNumber % 2 == 0;
+              const weekEven = startTime.weekNumber % 2 == 1;
 
               if (isOnlyNonEvenWeek && weekEven) continue;
               if (isOnlyEvenWeek && !weekEven) continue;
