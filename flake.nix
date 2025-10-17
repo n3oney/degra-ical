@@ -36,7 +36,7 @@
 
         devenv.shells.default = {
           processes = {
-            "dev".exec = "bun run --watach .";
+            "dev".exec = "bun run --watch .";
           };
 
           scripts = {
