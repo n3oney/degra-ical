@@ -89,8 +89,8 @@ const server = serve({
             const classNameRegex = /z (.*), prowadzący/;
             const classNameMatch = text.match(classNameRegex);
             const [___, className] = classNameMatch ?? [];
-            const isOnlyNonEvenWeek = text.includes("(tyg. I)");
-            const isOnlyEvenWeek = text.includes("(tyg. II)");
+            const isOnlyNonEvenWeek = text.includes("(tyg. II)");
+            const isOnlyEvenWeek = text.includes("(tyg. I)");
             let organizer = null;
 
             // only analyze names that have two+ words
